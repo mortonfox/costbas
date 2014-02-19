@@ -2,7 +2,7 @@
 # Script for calculating the cost basis of sale transactions.
 # Takes a QIF file as input and sends the cost basis report to stdout.
 
-require 5.004;
+require 5.010;
 use strict;
 use Getopt::Std;
 use FileHandle;
@@ -362,7 +362,7 @@ sub run_buy {
     my $transaction = shift;
     my $holdings = shift;
 
-    my $costbasis = $transaction->{amount} + 
+    my $costbasis = ($transaction->{amount} // 0) + 
 	$transaction->{commission};
 #     my $costbasis = $transaction->{price} * $transaction->{shares} + 
 # 	$transaction->{commission};
@@ -386,8 +386,8 @@ sub run_buy {
 
 # And report the transaction.
     print datestr($transaction->{date}), 
-	": BUY $transaction->{shares} shares at $transaction->{price} ",
-	"for $transaction->{amount}\n";
+	": BUY $transaction->{shares} shares at @{[$transaction->{price} // 0]} ",
+	"for @{[$transaction->{amount} // 0]}\n";
 
     show_totals $holdings;
 } # run_buy
