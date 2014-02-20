@@ -6,6 +6,9 @@ module CostBasis
 
   class CostBasis
 
+    # Share amounts below this are treated as zero.
+    SHARETOL = 0.001
+
     def initialize
       @holdings = {
         lots: [],
@@ -37,7 +40,7 @@ module CostBasis
     def join_wrap strlist, sep, width
       strlist = strlist.dup
       str = ''
-      cur_line = strlist.shift
+      cur_line = strlist.shift.to_s
       until strlist.empty?
         next_word = strlist.shift
         if cur_line.size + sep.size + next_word.size > width
@@ -56,9 +59,10 @@ module CostBasis
       lot_strs = @holdings[:lots].reject { |lot|
         lot[:shares] == 0
       }.map { |lot|
-        "#{fmt_date lot[:date]} #{lot[:shares]}"
+        "#{fmt_date lot[:date]} #{form4 lot[:shares]}"
       }
       puts join_wrap(lot_strs, '  ', 78)
+      puts
     end
     private :show_lots
 
@@ -77,13 +81,14 @@ module CostBasis
         if @holdings[:totalbasis] == 0 or @holdings[:totalshares] == 0
           '    Shares: 0  Total Cost: 0'
         else
-          "    Shares: #{@holdings[:totalshares]}  Total cost: #{cents $holdings[:totalbasis]}  Average cost: #{form4($holdings[:totalbasis] / $holdings[:totalshares])}"
+          "    Shares: #{@holdings[:totalshares]}  Total cost: #{cents @holdings[:totalbasis]}  Average cost: #{form4(@holdings[:totalbasis] / @holdings[:totalshares])}"
         end
       )
       puts
     end
     private :show_totals
 
+    # Apply a buy transaction to our holdings.
     def run_buy trans
       costbasis = trans[:amount].to_f + trans[:commission].to_f
       lot = {
@@ -101,11 +106,140 @@ module CostBasis
     end
     private :run_buy
 
+    # Figure out the type of capital gain (long or short) given the buy and
+    # sell dates.
+    def capgain_term buydate, selldate
+      buymon = buydate.year * 12 + buydate.mon
+      sellmon = selldate.year * 12 + selldate.mon
+      sellday = selldate.day
+      if sellday < buydate.day
+        # The length of the month doesn't matter here because we are just
+        # comparing dates, not calculating calendar periods.
+        sellday += 31
+        sellmon -= 1
+      end
+
+      # The IRS considers a holding period to be one year long if it is the
+      # day after in the next year. So March 5, 1997 to March 5, 1998 is
+      # still considered short term. But March 5, 1997 to March 6, 1998 is
+      # not.
+      mondiff = sellmon - buymon
+      mondiff += 1 if sellday > buydate.day
+
+      mondiff <= 12 ? :S : :L
+    end
+    private :capgain_term
+
+    def showbasis salelots
+      basis = { L: 0, S: 0 }
+      shares = { L: 0, S: 0 }
+
+      salelots.each { |lot|
+        price = yield lot
+        amount = lot[:shares] * price
+        term = lot[:term]
+        puts "  #{fmt_date lot[:date]}: #{form4 lot[:shares]} * #{form4 price} = #{cents amount} #{term}"
+        basis[term] += amount
+        shares[term] += lot[:shares]
+      }
+
+      puts "  Totals: L=#{cents basis[:L]} (#{form4 shares[:L]} shares)  S=#{cents basis[:S]} (#{form4 shares[:S]} shares)"
+      puts
+    end
+    private :showbasis
+
+    # Apply a sell transaction to our holdings.
+    def run_sell trans
+      # We have to round down the average cost basis. It appears to be
+      # standard practice at all mutual fund companies.
+      avbasis = @holdings[:totalbasis] / @holdings[:totalshares]
+
+      # This array holds all the share lots consumed in the sale
+      # transaction.
+      salelots = []
+
+      # Number of shares to be sold.
+      saleshares = trans[:shares]
+
+      # Update the totals.
+      @holdings[:totalbasis] -= avbasis * saleshares;
+      @holdings[:totalshares] -= saleshares;
+
+      # Regardless of the capital gains calculation method, we have to go
+      # through the holdings lot by lot to determine the holding periods.
+      @holdings[:lots].each { |lot|
+        # Skip all lots that have already been zeroed out.
+	next if lot[:shares] == 0
+
+	if saleshares <= lot[:shares]
+          # The remaining shares to be sold fit in this lot.
+          salelots << {
+            price: lot[:price],
+            date: lot[:date],
+            shares: saleshares,
+            term: capgain_term(lot[:date], trans[:date])
+          }
+          lot[:shares] -= saleshares
+          saleshares = 0
+          break
+        end
+
+        # Otherwise, this entire lot is consumed.
+        salelots << {
+          price: lot[:price],
+          date: lot[:date],
+          shares: lot[:shares],
+          term: capgain_term(lot[:date], trans[:date])
+        }
+	saleshares -= lot[:shares]
+	lot[:shares] = 0
+      }
+
+      # The number of shares sold is greater than the number of shares
+      # held. It would be very strange if this happened. The comparison
+      # tests if the shares remaining to be "sold" from the current
+      # holdings is greater than 0 after going through all of the holdings.
+      fail "Share balance below zero" if saleshares > SHARETOL
+
+      puts "#{fmt_date trans[:date]}: SELL #{trans[:shares]} shares"
+
+      @holdings[:totalshares] = 0 if @holdings[:totalshares].abs < SHARETOL
+      @holdings[:totalbasis] = 0 if @holdings[:totalbasis].abs < SHARETOL
+      show_totals
+
+      puts '  FIFO:'
+      showbasis(salelots) { |lot| lot[:price] }
+
+      puts '  Average cost basis:'
+      showbasis(salelots) { |lot| avbasis }
+    end
+    private :run_sell
+
+    # Apply a stock split to our holdings.
+    def run_split trans
+      # For some reason, Quicken reports 10 times the split ratio rather than the
+      # split ratio itself.
+      mult = trans[:shares] / 10.0
+
+      @holdings[:lots].each { |lot|
+        lot[:shares] *= mult
+        lot[:price] /= mult
+      }
+
+      @holdings[:totalshares] *= mult
+
+      puts "#{fmt_date trans[:date]}: STOCK SPLIT #{mult} for 1"
+      show_totals
+    end
+    private :run_split
+
     def run_transaction trans
       if buy_action? trans[:action]
         run_buy trans
       elsif sell_action? trans[:action]
+        run_sell trans
       elsif trans[:action].downcase == 'stksplit'
+        run_split trans
       else
         # Ignore transaction and don't show lots.
         return
@@ -137,11 +271,11 @@ Usage: #{progname} QIF-file
   fname or die USAGE
 
   trans_table = File.open(fname, 'r') { |file|
-    Qif.new.read_qif file
+    CostBasis::Qif.new.read_qif file
   }
 
   trans_table.each { |security, translist|
-    CostBasis.new.run_transactions security, translist
+    CostBasis::CostBasis.new.run_transactions security, translist
   }
 end
 

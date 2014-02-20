@@ -109,6 +109,15 @@ module CostBasis
           # Quantity of shares.
           curtrans[:shares] = parse_num parm
 
+        when 'U'
+        when '$'
+          # not used
+
+        when 'L'
+        when 'M'
+        when 'P'
+          # Transaction memo.
+
         when 'T'
           # Dollar amount of transaction.
           curtrans[:amount] = parse_num parm
