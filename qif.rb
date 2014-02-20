@@ -2,6 +2,7 @@ require 'date'
 
 module CostBasis
 
+  # Reader for Quicken QIF files.
   class Qif
 
     def initialize
@@ -10,7 +11,7 @@ module CostBasis
     # Parse a QIF format date.
     def parse_date str
       # Date line. The second and third numbers can be space-padded.
-      /(\d+)\/([ \d]+)\/([ \d]+)/.match(str) { |mdata|
+      %r((\d+)/([ \d]+)/([ \d]+)).match(str) { |mdata|
         return Date.civil(mdata[3].to_i + 1900, mdata[1].to_i, mdata[2].to_i)
       }
 

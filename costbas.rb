@@ -4,6 +4,7 @@ require_relative 'qif'
 
 module CostBasis
 
+  # Cost basis calculator.
   class CostBasis
 
     # Share amounts below this are treated as zero.
@@ -162,16 +163,16 @@ module CostBasis
       saleshares = trans[:shares]
 
       # Update the totals.
-      @holdings[:totalbasis] -= avbasis * saleshares;
-      @holdings[:totalshares] -= saleshares;
+      @holdings[:totalbasis] -= avbasis * saleshares
+      @holdings[:totalshares] -= saleshares
 
       # Regardless of the capital gains calculation method, we have to go
       # through the holdings lot by lot to determine the holding periods.
       @holdings[:lots].each { |lot|
         # Skip all lots that have already been zeroed out.
-	next if lot[:shares] == 0
+        next if lot[:shares] == 0
 
-	if saleshares <= lot[:shares]
+        if saleshares <= lot[:shares]
           # The remaining shares to be sold fit in this lot.
           salelots << {
             price: lot[:price],
@@ -191,15 +192,15 @@ module CostBasis
           shares: lot[:shares],
           term: capgain_term(lot[:date], trans[:date])
         }
-	saleshares -= lot[:shares]
-	lot[:shares] = 0
+        saleshares -= lot[:shares]
+        lot[:shares] = 0
       }
 
       # The number of shares sold is greater than the number of shares
       # held. It would be very strange if this happened. The comparison
       # tests if the shares remaining to be "sold" from the current
       # holdings is greater than 0 after going through all of the holdings.
-      fail "Share balance below zero" if saleshares > SHARETOL
+      fail 'Share balance below zero' if saleshares > SHARETOL
 
       puts "#{fmt_date trans[:date]}: SELL #{trans[:shares]} shares"
 
