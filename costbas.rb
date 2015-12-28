@@ -3,10 +3,8 @@
 require_relative 'qif'
 
 module CostBasis
-
   # Cost basis calculator.
   class CostBasis
-
     # Share amounts below this are treated as zero.
     SHARETOL = 0.001
 
@@ -68,12 +66,12 @@ module CostBasis
     private :show_lots
 
     def cents num
-      sprintf '%.2f', num
+      format '%.2f', num
     end
     private :cents
 
     def form4 num
-      sprintf '%.4f', num
+      format '%.4f', num
     end
     private :form4
 
@@ -212,7 +210,7 @@ module CostBasis
       showbasis(salelots) { |lot| lot[:price] }
 
       puts '  Average cost basis:'
-      showbasis(salelots) { |lot| avbasis }
+      showbasis(salelots) { |_lot| avbasis }
     end
     private :run_sell
 
@@ -258,7 +256,6 @@ module CostBasis
         run_transaction trans
       }
     end
-
   end
 end
 
