@@ -1,22 +1,20 @@
 require 'date'
 
 module CostBasis
-
   # Reader for Quicken QIF files.
   class Qif
-
     def initialize
     end
 
     # Parse a QIF format date.
     def parse_date str
       # Date line. The second and third numbers can be space-padded.
-      %r((\d+)/([ \d]+)/([ \d]+)).match(str) { |mdata|
+      %r{(\d+)/([ \d]+)/([ \d]+)}.match(str) { |mdata|
         return Date.civil(mdata[3].to_i + 1900, mdata[1].to_i, mdata[2].to_i)
       }
 
       # Date format for year 2000 and beyond.
-      /(\d+)\/([ \d]+)'([ \d]+)/.match(str) { |mdata|
+      %r{(\d+)/([ \d]+)'([ \d]+)}.match(str) { |mdata|
         return Date.civil(mdata[3].to_i + 2000, mdata[1].to_i, mdata[2].to_i)
       }
 
@@ -26,7 +24,7 @@ module CostBasis
 
     # Dollar amounts can have comma separators.
     def parse_num str
-      str.gsub(',', '').to_f
+      str.delete(',').to_f
     end
     private :parse_num
 
@@ -134,6 +132,5 @@ module CostBasis
 
       trans
     end
-
   end
 end
