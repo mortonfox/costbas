@@ -18,14 +18,14 @@ module CostBasis
 
     # All these transactions are treated as buys. For tax purposes, we
     # treat all reinvestments as purchases on the date of reinvestment.
-    BUY_ACTIONS = %w(shrsin reinvdiv reinvint reinvsh reinvmd reinvlg buy)
+    BUY_ACTIONS = %w(shrsin reinvdiv reinvint reinvsh reinvmd reinvlg buy).freeze
     def buy_action? action
       BUY_ACTIONS.include? action.downcase
     end
     private :buy_action?
 
     # All these transactions are treated as sells.
-    SELL_ACTIONS = %w(shrsout sell)
+    SELL_ACTIONS = %w(shrsout sell).freeze
     def sell_action? action
       SELL_ACTIONS.include? action.downcase
     end
@@ -77,7 +77,7 @@ module CostBasis
 
     def show_totals
       puts(
-        if @holdings[:totalbasis] == 0 or @holdings[:totalshares] == 0
+        if @holdings[:totalbasis] == 0 || @holdings[:totalshares] == 0
           '    Shares: 0  Total Cost: 0'
         else
           "    Shares: #{@holdings[:totalshares]}  Total cost: #{cents @holdings[:totalbasis]}  Average cost: #{form4(@holdings[:totalbasis] / @holdings[:totalshares])}"
@@ -237,7 +237,7 @@ module CostBasis
         run_buy trans
       elsif sell_action? trans[:action]
         run_sell trans
-      elsif trans[:action].downcase == 'stksplit'
+      elsif trans[:action].casecmp('stksplit') == 0
         run_split trans
       else
         # Ignore transaction and don't show lots.
@@ -261,12 +261,12 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   progname = File.basename $PROGRAM_NAME
-  USAGE = <<-EOS
+  USAGE = <<-EOS.freeze
 Usage: #{progname} QIF-file
   EOS
 
   fname = ARGV.shift
-  fname or die USAGE
+  fname || die(USAGE)
 
   trans_table = File.open(fname, 'r') { |file|
     CostBasis::Qif.new.read_qif file

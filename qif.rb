@@ -72,7 +72,7 @@ module CostBasis
       curtrans = {}
 
       # Check QIF file header.
-      io.gets.strip.downcase == '!type:invst' or fail 'QIF data is not from an investment account'
+      io.gets.strip.casecmp('!type:invst') == 0 || fail('QIF data is not from an investment account')
 
       io.each_line { |line|
         # First character on the line indicates the type of information on
