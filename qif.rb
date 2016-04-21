@@ -18,7 +18,7 @@ module CostBasis
         return Date.civil(mdata[3].to_i + 2000, mdata[1].to_i, mdata[2].to_i)
       }
 
-      fail "Unrecognized date: #{str}"
+      raise "Unrecognized date: #{str}"
     end
     private :parse_date
 
@@ -72,7 +72,7 @@ module CostBasis
       curtrans = {}
 
       # Check QIF file header.
-      io.gets.strip.casecmp('!type:invst') == 0 || fail('QIF data is not from an investment account')
+      io.gets.strip.casecmp('!type:invst') == 0 || raise('QIF data is not from an investment account')
 
       io.each_line { |line|
         # First character on the line indicates the type of information on
@@ -125,7 +125,7 @@ module CostBasis
           curtrans[:commission] = parse_num parm
 
         else
-          fail "Unrecognized command code #{cmdchar}"
+          raise "Unrecognized command code #{cmdchar}"
 
         end
       }

@@ -198,7 +198,7 @@ module CostBasis
       # held. It would be very strange if this happened. The comparison
       # tests if the shares remaining to be "sold" from the current
       # holdings is greater than 0 after going through all of the holdings.
-      fail 'Share balance below zero' if saleshares > SHARETOL
+      raise 'Share balance below zero' if saleshares > SHARETOL
 
       puts "#{fmt_date trans[:date]}: SELL #{trans[:shares]} shares"
 
