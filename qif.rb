@@ -9,23 +9,26 @@ module CostBasis
 
     # Parse a QIF format date.
     def parse_date str
-      # puts str
       # Date line. The second and third numbers can be space-padded.
       %r{(\d+)/([ \d]+)/([ \d]+)}.match(str) { |mdata|
         year = mdata[3].to_i
-        if year < 80
-          year += 2000
-        elsif year < 100
-          year += 1900
+
+        # Handle 2-digits years specially.
+        if year < 100
+          if year < 80
+            year += 2000
+          else
+            year += 1900
+          end
         end
-        # puts year, mdata[1], mdata[2]
+
         return Date.civil(year, mdata[1].to_i, mdata[2].to_i)
       }
 
-      # Date format for year 2000 and beyond.
-      # %r{(\d+)/([ \d]+)'([ \d]+)}.match(str) { |mdata|
-      #   return Date.civil(mdata[3].to_i + 2000, mdata[1].to_i, mdata[2].to_i)
-      # }
+      # Date format for year 2000 and beyond. (Quicken only?)
+      %r{(\d+)/([ \d]+)'([ \d]+)}.match(str) { |mdata|
+        return Date.civil(mdata[3].to_i + 2000, mdata[1].to_i, mdata[2].to_i)
+      }
 
       raise "Unrecognized date on line #{@linenum}: #{str}"
     end
@@ -80,10 +83,7 @@ module CostBasis
       trans = {}
       curtrans = {}
 
-      # Check QIF file header.
-      # io.gets.strip.casecmp('!type:invst') == 0 || raise('QIF data is not from an investment account')
-
-      # Skip until we see a !type:invst section.
+      # Skip everything except !type:invst sections.
       skip = true
       @linenum = 0
 
@@ -130,13 +130,10 @@ module CostBasis
           # Quantity of shares.
           curtrans[:shares] = parse_num parm
 
-        when 'U'
-        when '$'
+        when 'U', '$' then true
           # not used
 
-        when 'L'
-        when 'M'
-        when 'P'
+        when 'L', 'M', 'P' then true
           # Transaction memo.
 
         when 'T'
@@ -147,7 +144,7 @@ module CostBasis
           curtrans[:commission] = parse_num parm
 
         else
-          raise "Unrecognized command code #{cmdchar}"
+          raise "Unrecognized command code on line #{@linenum}: #{cmdchar}"
 
         end
       }
