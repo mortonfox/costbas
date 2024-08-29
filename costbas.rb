@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+# frozen_string_literal: true
+
 require_relative 'qif'
 
 module CostBasis
@@ -18,32 +20,32 @@ module CostBasis
 
     # All these transactions are treated as buys. For tax purposes, we
     # treat all reinvestments as purchases on the date of reinvestment.
-    BUY_ACTIONS = %w(shrsin reinvdiv reinvint reinvsh reinvmd reinvlg buy).freeze
-    def buy_action? action
+    BUY_ACTIONS = %w[shrsin reinvdiv reinvint reinvsh reinvmd reinvlg buy].freeze
+    def buy_action?(action)
       BUY_ACTIONS.include? action.downcase
     end
     private :buy_action?
 
     # All these transactions are treated as sells.
-    SELL_ACTIONS = %w(shrsout sell).freeze
-    def sell_action? action
+    SELL_ACTIONS = %w[shrsout sell].freeze
+    def sell_action?(action)
       SELL_ACTIONS.include? action.downcase
     end
     private :sell_action?
 
-    def fmt_date dt
-      dt.strftime '%Y-%m-%d'
+    def fmt_date(date)
+      date.strftime '%Y-%m-%d'
     end
     private :fmt_date
 
-    def join_wrap strlist, sep, width
+    def join_wrap(strlist, sep, width)
       strlist = strlist.dup
       str = ''
       cur_line = strlist.shift.to_s
       until strlist.empty?
         next_word = strlist.shift
         if cur_line.size + sep.size + next_word.size > width
-          str += cur_line + "\n"
+          str += "#{cur_line}\n"
           cur_line = next_word
         else
           cur_line += sep + next_word
@@ -55,29 +57,28 @@ module CostBasis
 
     def show_lots
       puts '  Lots:'
-      lot_strs = @holdings[:lots].reject { |lot|
-        lot[:shares] == 0
-      }.map { |lot|
-        "#{fmt_date lot[:date]} #{form4 lot[:shares]}"
-      }
+      lot_strs =
+        @holdings[:lots]
+        .reject { |lot| lot[:shares].zero? }
+        .map { |lot| "#{fmt_date lot[:date]} #{form4 lot[:shares]}" }
       puts join_wrap(lot_strs, '  ', 78)
       puts
     end
     private :show_lots
 
-    def cents num
+    def cents(num)
       format '%.2f', num
     end
     private :cents
 
-    def form4 num
+    def form4(num)
       format '%.4f', num
     end
     private :form4
 
     def show_totals
       puts(
-        if @holdings[:totalbasis] == 0 || @holdings[:totalshares] == 0
+        if @holdings[:totalbasis].zero? || @holdings[:totalshares].zero?
           '    Shares: 0  Total Cost: 0'
         else
           "    Shares: #{@holdings[:totalshares]}  Total cost: #{cents @holdings[:totalbasis]}  Average cost: #{form4(@holdings[:totalbasis] / @holdings[:totalshares])}"
@@ -88,7 +89,7 @@ module CostBasis
     private :show_totals
 
     # Apply a buy transaction to our holdings.
-    def run_buy trans
+    def run_buy(trans)
       costbasis = trans[:amount].to_f + trans[:commission].to_f
       lot = {
         price: costbasis / trans[:shares],
@@ -107,9 +108,9 @@ module CostBasis
 
     # Figure out the type of capital gain (long or short) given the buy and
     # sell dates.
-    def capgain_term buydate, selldate
-      buymon = buydate.year * 12 + buydate.mon
-      sellmon = selldate.year * 12 + selldate.mon
+    def capgain_term(buydate, selldate)
+      buymon = (buydate.year * 12) + buydate.mon
+      sellmon = (selldate.year * 12) + selldate.mon
       sellday = selldate.day
       if sellday < buydate.day
         # The length of the month doesn't matter here because we are just
@@ -129,7 +130,7 @@ module CostBasis
     end
     private :capgain_term
 
-    def showbasis salelots
+    def showbasis(salelots)
       basis = { L: 0, S: 0 }
       shares = { L: 0, S: 0 }
 
@@ -148,7 +149,7 @@ module CostBasis
     private :showbasis
 
     # Apply a sell transaction to our holdings.
-    def run_sell trans
+    def run_sell(trans)
       # We have to round down the average cost basis. It appears to be
       # standard practice at all mutual fund companies.
       avbasis = @holdings[:totalbasis] / @holdings[:totalshares]
@@ -168,7 +169,7 @@ module CostBasis
       # through the holdings lot by lot to determine the holding periods.
       @holdings[:lots].each { |lot|
         # Skip all lots that have already been zeroed out.
-        next if lot[:shares] == 0
+        next if lot[:shares].zero?
 
         if saleshares <= lot[:shares]
           # The remaining shares to be sold fit in this lot.
@@ -215,7 +216,7 @@ module CostBasis
     private :run_sell
 
     # Apply a stock split to our holdings.
-    def run_split trans
+    def run_split(trans)
       # For some reason, Quicken reports 10 times the split ratio rather than the
       # split ratio itself.
       mult = trans[:shares] / 10.0
@@ -232,12 +233,12 @@ module CostBasis
     end
     private :run_split
 
-    def run_transaction trans
+    def run_transaction(trans)
       if buy_action? trans[:action]
         run_buy trans
       elsif sell_action? trans[:action]
         run_sell trans
-      elsif trans[:action].casecmp('stksplit') == 0
+      elsif trans[:action].casecmp('stksplit').zero?
         run_split trans
       else
         # Ignore transaction and don't show lots.
@@ -248,7 +249,7 @@ module CostBasis
     end
     private :run_transaction
 
-    def run_transactions security, translist
+    def run_transactions(security, translist)
       puts "Transactions for #{security}:"
       puts
 
@@ -261,9 +262,9 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   progname = File.basename $PROGRAM_NAME
-  USAGE = <<-EOS.freeze
-Usage: #{progname} QIF-file
-  EOS
+  USAGE = <<~MESG.freeze
+    Usage: #{progname} QIF-file
+  MESG
 
   fname = ARGV.shift
   fname || die(USAGE)

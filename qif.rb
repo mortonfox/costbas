@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'date'
 
 module CostBasis
@@ -8,18 +10,18 @@ module CostBasis
     end
 
     # Parse a QIF format date.
-    def parse_date str
+    def parse_date(str)
       # Date line. The second and third numbers can be space-padded.
       %r{(\d+)/([ \d]+)/([ \d]+)}.match(str) { |mdata|
         year = mdata[3].to_i
 
         # Handle 2-digits years specially.
         if year < 100
-          if year < 80
-            year += 2000
-          else
-            year += 1900
-          end
+          year += if year < 80
+                    2000
+                  else
+                    1900
+                  end
         end
 
         return Date.civil(year, mdata[1].to_i, mdata[2].to_i)
@@ -35,7 +37,7 @@ module CostBasis
     private :parse_date
 
     # Dollar amounts can have comma separators.
-    def parse_num str
+    def parse_num(str)
       str.delete(',').to_f
     end
     private :parse_num
@@ -79,7 +81,7 @@ module CostBasis
     # addition, each transaction in the QIF file ends with a line that begins
     # with a ^ character.
 
-    def read_qif io
+    def read_qif(io)
       trans = {}
       curtrans = {}
 
@@ -91,7 +93,7 @@ module CostBasis
         @linenum += 1
 
         if line.start_with?('!')
-          skip = ! line.strip.casecmp('!type:invst').zero?
+          skip = !line.strip.casecmp('!type:invst').zero?
           next
         end
 
@@ -130,10 +132,10 @@ module CostBasis
           # Quantity of shares.
           curtrans[:shares] = parse_num parm
 
-        when 'U', '$' then true
+        when 'U', '$' then 1
           # not used
 
-        when 'L', 'M', 'P' then true
+        when 'L', 'M', 'P' then 2
           # Transaction memo.
 
         when 'T'
