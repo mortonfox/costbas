@@ -4,21 +4,30 @@ module CostBasis
   # Reader for Quicken QIF files.
   class Qif
     def initialize
+      @linenum = nil
     end
 
     # Parse a QIF format date.
     def parse_date str
+      # puts str
       # Date line. The second and third numbers can be space-padded.
       %r{(\d+)/([ \d]+)/([ \d]+)}.match(str) { |mdata|
-        return Date.civil(mdata[3].to_i + 1900, mdata[1].to_i, mdata[2].to_i)
+        year = mdata[3].to_i
+        if year < 80
+          year += 2000
+        elsif year < 100
+          year += 1900
+        end
+        # puts year, mdata[1], mdata[2]
+        return Date.civil(year, mdata[1].to_i, mdata[2].to_i)
       }
 
       # Date format for year 2000 and beyond.
-      %r{(\d+)/([ \d]+)'([ \d]+)}.match(str) { |mdata|
-        return Date.civil(mdata[3].to_i + 2000, mdata[1].to_i, mdata[2].to_i)
-      }
+      # %r{(\d+)/([ \d]+)'([ \d]+)}.match(str) { |mdata|
+      #   return Date.civil(mdata[3].to_i + 2000, mdata[1].to_i, mdata[2].to_i)
+      # }
 
-      raise "Unrecognized date: #{str}"
+      raise "Unrecognized date on line #{@linenum}: #{str}"
     end
     private :parse_date
 
@@ -72,9 +81,22 @@ module CostBasis
       curtrans = {}
 
       # Check QIF file header.
-      io.gets.strip.casecmp('!type:invst') == 0 || raise('QIF data is not from an investment account')
+      # io.gets.strip.casecmp('!type:invst') == 0 || raise('QIF data is not from an investment account')
+
+      # Skip until we see a !type:invst section.
+      skip = true
+      @linenum = 0
 
       io.each_line { |line|
+        @linenum += 1
+
+        if line.start_with?('!')
+          skip = ! line.strip.casecmp('!type:invst').zero?
+          next
+        end
+
+        next if skip
+
         # First character on the line indicates the type of information on
         # this line.
         cmdchar, parm = line.chomp.split('', 2)
